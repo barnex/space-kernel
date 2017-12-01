@@ -3,30 +3,28 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math"
 )
-
-var flagVerlet = flag.Bool("v", false, "use verlet")
 
 func main() {
 	flag.Parse()
 
-	solver := SymEuler
-	if *flagVerlet {
-		solver = Verlet
-	}
+	solver := AVerlet
 
 	//every := 0.01
-	max := 3.
+	max := 3000.
+	h := 1e-3
 
-	for h := 0.5; h > 5e-8; h /= 2 {
-		p := Vec{1, 0, 0}
-		v := Vec{0, 1.2, 0}
-		//for t := 0.0; t < max; t += every {
-		//	p, v = solver(p, v, every, h)
-		//	fmt.Println(t, p[X], p[Y], h)
-		//}
-		p, v = solver(p, v, max, h)
-		fmt.Println(h, p[X], p[Y], v[X], v[Y])
+	p := Vec{1, 0, 0}
+	v := Vec{0, 1.4, 0}
+	i := 0
+	for t := 0.0; t < max; t += h {
+		p, v, h = solver(p, v, h)
+		i++
+		if i == 5 {
+			fmt.Println(t, p[X], p[Y], h)
+			i = 0
+		}
 	}
 }
 
@@ -35,25 +33,40 @@ func Acc(p Vec) Vec {
 }
 
 // https://en.wikipedia.org/wiki/Semi-implicit_Euler_method
-func SymEuler(p, v Vec, d, dt float64) (Vec, Vec) {
-	for t := 0.0; t < d; t += dt {
-		v = v.MAdd(dt, Acc(p))
-		p = p.MAdd(dt, v)
-	}
-	return p, v
+func SymEuler(p, v Vec, dt float64) (Vec, Vec, float64) {
+	v = v.MAdd(dt, Acc(p))
+	p = p.MAdd(dt, v)
+	return p, v, dt
 }
 
 // https://en.wikipedia.org/wiki/Verlet_integration
-func Verlet(p, v Vec, d, dt float64) (Vec, Vec) {
+func Verlet(p, v Vec, dt float64) (Vec, Vec, float64) {
 	dt2_2 := dt * dt / 2
 	dt_2 := dt / 2
-	for t := 0.0; t < d; t += dt {
-		a1 := Acc(p)
-		p = p.MAdd(dt, v).MAdd(dt2_2, a1)
-		a2 := Acc(p)
-		v = v.MAdd(dt_2, a1.Add(a2))
+	a1 := Acc(p)
+	p = p.MAdd(dt, v).MAdd(dt2_2, a1)
+	a2 := Acc(p)
+	v = v.MAdd(dt_2, a1.Add(a2))
+	return p, v, dt
+}
+
+// Adaptive verlet
+func AVerlet(p, v Vec, dt float64) (Vec, Vec, float64) {
+	_, v1, _ := SymEuler(p, v, dt)
+	p2, v2, _ := Verlet(p, v, dt)
+
+	err := v1.Sub(v2).Len()
+	maxErr := 1e-5
+	fac := math.Pow(maxErr/err, 0.5)
+	if fac > 2 {
+		fac = 2
 	}
-	return p, v
+	if fac < 0.5 {
+		fac = 0.5
+	}
+	dt *= fac
+
+	return p2, v2, dt
 }
 
 //type Rocket struct {
