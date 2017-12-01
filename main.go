@@ -1,23 +1,32 @@
 package main
 
-import "fmt"
+import (
+	"flag"
+	"fmt"
+)
+
+var flagVerlet = flag.Bool("v", false, "use verlet")
 
 func main() {
+	flag.Parse()
 
-	p := Vec{1, 0, 0}
-	v := Vec{0, 1.2, 0}
+	solver := SymEuler
+	if *flagVerlet {
+		solver = Verlet
+	}
 
-	h := 1e-3
-	t := 0.0
-	for t < 1000 {
-		e := 0.0
-		for e < .1 {
-			v = v.MAdd(h, Acc(p))
-			p = p.MAdd(h, v)
-			e += h
-		}
-		t += e
-		fmt.Println(t, p[X], p[Y])
+	//every := 0.01
+	max := 3.
+
+	for h := 0.5; h > 5e-8; h /= 2 {
+		p := Vec{1, 0, 0}
+		v := Vec{0, 1.2, 0}
+		//for t := 0.0; t < max; t += every {
+		//	p, v = solver(p, v, every, h)
+		//	fmt.Println(t, p[X], p[Y], h)
+		//}
+		p, v = solver(p, v, max, h)
+		fmt.Println(h, p[X], p[Y], v[X], v[Y])
 	}
 }
 
@@ -25,10 +34,24 @@ func Acc(p Vec) Vec {
 	return p.Normalized().Div(-p.Len2())
 }
 
-func Euler(p, v Vec, d, dt float64) (Vec, Vec) {
+// https://en.wikipedia.org/wiki/Semi-implicit_Euler_method
+func SymEuler(p, v Vec, d, dt float64) (Vec, Vec) {
 	for t := 0.0; t < d; t += dt {
-		v = v.MAdd(h, Acc(p))
-		p = p.MAdd(h, v)
+		v = v.MAdd(dt, Acc(p))
+		p = p.MAdd(dt, v)
+	}
+	return p, v
+}
+
+// https://en.wikipedia.org/wiki/Verlet_integration
+func Verlet(p, v Vec, d, dt float64) (Vec, Vec) {
+	dt2_2 := dt * dt / 2
+	dt_2 := dt / 2
+	for t := 0.0; t < d; t += dt {
+		a1 := Acc(p)
+		p = p.MAdd(dt, v).MAdd(dt2_2, a1)
+		a2 := Acc(p)
+		v = v.MAdd(dt_2, a1.Add(a2))
 	}
 	return p, v
 }
