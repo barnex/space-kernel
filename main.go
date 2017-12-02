@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"math"
 )
 
 func main() {
@@ -12,19 +11,19 @@ func main() {
 	solver := AVerlet
 
 	//every := 0.01
-	max := 3000.
+	max := 900.
 	h := 1e-3
 
 	p := Vec{1, 0, 0}
 	v := Vec{0, 1.4, 0}
-	i := 0
+	//i := 0
 	for t := 0.0; t < max; t += h {
 		p, v, h = solver(p, v, h)
-		i++
-		if i == 5 {
-			fmt.Println(t, p[X], p[Y], h)
-			i = 0
-		}
+		//i++
+		//if i == 5 {
+		fmt.Println(t, p[X], p[Y], h)
+		//i = 0
+		//}
 	}
 }
 
@@ -52,21 +51,31 @@ func Verlet(p, v Vec, dt float64) (Vec, Vec, float64) {
 
 // Adaptive verlet
 func AVerlet(p, v Vec, dt float64) (Vec, Vec, float64) {
-	_, v1, _ := SymEuler(p, v, dt)
-	p2, v2, _ := Verlet(p, v, dt)
+	dt2_2 := dt * dt / 2
+	dt_2 := dt / 2
 
-	err := v1.Sub(v2).Len()
-	maxErr := 1e-5
-	fac := math.Pow(maxErr/err, 0.5)
-	if fac > 2 {
-		fac = 2
-	}
-	if fac < 0.5 {
-		fac = 0.5
-	}
+	a1 := Acc(p)
+	p = p.MAdd(dt, v).MAdd(dt2_2, a1)
+	a2 := Acc(p)
+	v = v.MAdd(dt_2, a1.Add(a2))
+
+	da := a1.Sub(a2).Len() / (a1.Add(a2).Len())
+	maxDa := 1e-2
+
+	fac := clamp(maxDa / da)
 	dt *= fac
 
-	return p2, v2, dt
+	return p, v, dt
+}
+
+func clamp(x float64) float64 {
+	if x < 0.1 {
+		return 0.1
+	}
+	if x > 10 {
+		return 10
+	}
+	return x
 }
 
 //type Rocket struct {
