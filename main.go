@@ -5,25 +5,26 @@ import (
 	"fmt"
 )
 
+var (
+	flagR     = flag.Float64("r", 1, "starting distance from center")
+	flagV     = flag.Float64("v", 1, "starting velocity")
+	flagT     = flag.Float64("t", 100, "total time")
+	flagDT    = flag.Float64("dt", 1e-5, "initial time step")
+	flagMaxDa = flag.Float64("maxda", 1e-2, "angular resolution")
+)
+
 func main() {
 	flag.Parse()
 
-	solver := AVerlet
+	max := *flagT
+	h := *flagDT
+	maxDa := *flagMaxDa
 
-	//every := 0.01
-	max := 900.
-	h := 1e-3
-
-	p := Vec{1, 0, 0}
-	v := Vec{0, 1.4, 0}
-	//i := 0
+	p := Vec{*flagR, 0, 0}
+	v := Vec{0, *flagV, 0}
 	for t := 0.0; t < max; t += h {
-		p, v, h = solver(p, v, h)
-		//i++
-		//if i == 5 {
+		p, v, h = AVerlet(p, v, h, maxDa)
 		fmt.Println(t, p[X], p[Y], h)
-		//i = 0
-		//}
 	}
 }
 
@@ -50,7 +51,7 @@ func Verlet(p, v Vec, dt float64) (Vec, Vec, float64) {
 }
 
 // Adaptive verlet
-func AVerlet(p, v Vec, dt float64) (Vec, Vec, float64) {
+func AVerlet(p, v Vec, dt, maxDa float64) (Vec, Vec, float64) {
 	dt2_2 := dt * dt / 2
 	dt_2 := dt / 2
 
@@ -60,7 +61,6 @@ func AVerlet(p, v Vec, dt float64) (Vec, Vec, float64) {
 	v = v.MAdd(dt_2, a1.Add(a2))
 
 	da := a1.Sub(a2).Len() / (a1.Add(a2).Len())
-	maxDa := 1e-2
 
 	fac := clamp(maxDa / da)
 	dt *= fac
