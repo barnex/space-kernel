@@ -41,12 +41,12 @@ func (v Vec) Div(a float64) Vec {
 
 // Length (norm).
 func (v Vec) Len() float64 {
-	return math.Sqrt(v.Dot(v))
+	return math.Sqrt(v[X]*v[X] + v[Y]*v[Y])
 }
 
 // Length squared
 func (v Vec) Len2() float64 {
-	return v.Dot(v)
+	return v[X]*v[X] + v[Y]*v[Y]
 }
 
 // Returns a copy of v, scaled to unit length.

@@ -84,8 +84,14 @@ func (p *Planet) Acc(r Vec, t float64) Vec {
 	return l.Normalized().Mul(-p.Mu / l.Len2())
 }
 
-func UnitAcc(p Vec, t float64) Vec {
-	return p.Normalized().Mul(-1 / p.Len2())
+func GravityAcc(mu float64) AccelFunc {
+	return func(p Vec, t float64) Vec {
+		x, y := p[X], p[Y]
+		len2 := x*x + y*y
+		len3 := len2 * math.Sqrt(len2)
+		f := -mu / len3
+		return Vec{f * x, f * y}
+	}
 }
 
 func AccSolar(p Vec, t float64) Vec {
