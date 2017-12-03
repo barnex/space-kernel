@@ -13,7 +13,7 @@ func TestAVerlet1(t *testing.T) {
 		pWant    Vec
 		tol      float64
 	}{
-		// tolerances drop quadratically with time step
+		// tolerances drop quadratically with angle step
 		{Vec{0, 1}, Vec{1, 0}, 1e-1, math.Pi / 2, Vec{1, 0}, 3e-3},
 		{Vec{0, 1}, Vec{1, 0}, 1e-2, math.Pi / 2, Vec{1, 0}, 3e-5},
 		{Vec{0, 1}, Vec{1, 0}, 1e-3, math.Pi / 2, Vec{1, 0}, 3e-7},
@@ -67,14 +67,13 @@ func TestSymEuler1(t *testing.T) {
 		pWant    Vec
 		tol      float64
 	}{
-		// tolerances drop linerarly with time step
+		// tolerances drop linearly with time step
 		{Vec{0, 1}, Vec{1, 0}, 1e-1, math.Pi / 2, Vec{1, 0}, 2e-1},
 		{Vec{0, 1}, Vec{1, 0}, 1e-2, math.Pi / 2, Vec{1, 0}, 2e-2},
 		{Vec{0, 1}, Vec{1, 0}, 1e-3, math.Pi / 2, Vec{1, 0}, 2e-3},
 		{Vec{0, 1}, Vec{1, 0}, 1e-4, math.Pi / 2, Vec{1, 0}, 2e-4},
 		{Vec{0, 1}, Vec{1, 0}, 1e-5, math.Pi / 2, Vec{1, 0}, 2e-5},
 		{Vec{0, 1}, Vec{1, 0}, 1e-6, math.Pi / 2, Vec{1, 0}, 2e-6},
-		// even smaller steps don't increase convergence anymore due to truncation.
 	}
 
 	stepper := SymEuler
