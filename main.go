@@ -3,79 +3,101 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math"
+	"os"
 )
 
 var (
 	flagR     = flag.Float64("r", 1, "starting distance from center")
 	flagV     = flag.Float64("v", 1, "starting velocity")
-	flagT     = flag.Float64("t", 100, "total time")
-	flagDT    = flag.Float64("dt", 1e-5, "initial time step")
-	flagMaxDa = flag.Float64("maxda", 1e-2, "angular resolution")
+	flagT     = flag.Float64("t", Earth.P, "total time")
+	flagDTh   = flag.Float64("d", 1e-3, "angular resolution")
+	flagEvery = flag.Float64("e", 1, "output every `N` steps")
 )
 
 func main() {
 	flag.Parse()
 
 	max := *flagT
-	h := *flagDT
-	maxDa := *flagMaxDa
+	h := 1.0
+	dth := *flagDTh
+	every := *flagEvery
 
-	p := Vec{*flagR, 0, 0}
-	v := Vec{0, *flagV, 0}
-	for t := 0.0; t < max; t += h {
-		p, v, h = AVerlet(p, v, h, maxDa)
-		fmt.Println(t, p[X], p[Y], h)
+	p := Vec{Earth.R + MoonSMA, 0, 0}
+	MoonV := 2 * math.Pi * MoonSMA / MoonP
+	v := Vec{0, Earth.V() + MoonV, 0}
+
+	i := every
+	n := 0
+	for t := 0.0; t < max; {
+		p, v, h = AVerlet(p, v, AccSolar, t, h, dth)
+		t += h
+		if i == every {
+			e := Earth.Pos(t)
+			m := MoonPos(t)
+			fmt.Println(t, p[X], p[Y], m[X], m[Y], e[X], e[Y], h)
+			i = 0
+		}
+		i++
+		n++
+	}
+
+	Log(n, "steps")
+	Log("dt", h, "s")
+}
+
+type Planet struct {
+	Mu float64 // M*G in m3/s2
+	R  float64 // Semi-major axis in m
+	P  float64 // Orbital period in s
+}
+
+var (
+	Earth = Planet{
+		Mu: EarthMu,
+		R:  EarthSMA,
+		P:  EarthP,
+	}
+)
+
+func (b *Planet) V() float64 {
+	return 2 * math.Pi * b.R / b.P
+}
+
+func (p *Planet) Pos(t float64) Vec {
+	return Vec{
+		X: p.R * math.Cos(2*math.Pi*t/p.P),
+		Y: p.R * math.Sin(2*math.Pi*t/p.P),
 	}
 }
 
-func Acc(p Vec) Vec {
-	return p.Normalized().Div(-p.Len2())
-}
-
-// https://en.wikipedia.org/wiki/Semi-implicit_Euler_method
-func SymEuler(p, v Vec, dt float64) (Vec, Vec, float64) {
-	v = v.MAdd(dt, Acc(p))
-	p = p.MAdd(dt, v)
-	return p, v, dt
-}
-
-// https://en.wikipedia.org/wiki/Verlet_integration
-func Verlet(p, v Vec, dt float64) (Vec, Vec, float64) {
-	dt2_2 := dt * dt / 2
-	dt_2 := dt / 2
-	a1 := Acc(p)
-	p = p.MAdd(dt, v).MAdd(dt2_2, a1)
-	a2 := Acc(p)
-	v = v.MAdd(dt_2, a1.Add(a2))
-	return p, v, dt
-}
-
-// Adaptive verlet
-func AVerlet(p, v Vec, dt, maxDa float64) (Vec, Vec, float64) {
-	dt2_2 := dt * dt / 2
-	dt_2 := dt / 2
-
-	a1 := Acc(p)
-	p = p.MAdd(dt, v).MAdd(dt2_2, a1)
-	a2 := Acc(p)
-	v = v.MAdd(dt_2, a1.Add(a2))
-
-	da := a1.Sub(a2).Len() / (a1.Add(a2).Len())
-
-	fac := clamp(maxDa / da)
-	dt *= fac
-
-	return p, v, dt
-}
-
-func clamp(x float64) float64 {
-	if x < 0.1 {
-		return 0.1
+func MoonPos(t float64) Vec {
+	m := Vec{
+		X: MoonSMA * math.Cos(2*math.Pi*t/MoonP),
+		Y: MoonSMA * math.Sin(2*math.Pi*t/MoonP),
 	}
-	if x > 10 {
-		return 10
-	}
-	return x
+	return Earth.Pos(t).Add(m)
+}
+
+func (p *Planet) Acc(r Vec, t float64) Vec {
+	l := r.Sub(p.Pos(t))
+	return l.Normalized().Mul(-p.Mu / l.Len2())
+}
+
+func UnitAcc(p Vec, t float64) Vec {
+	return p.Normalized().Mul(-1 / p.Len2())
+}
+
+func AccSolar(p Vec, t float64) Vec {
+	return AccSun(p).Add(Earth.Acc(p, t))
+}
+
+func AccSun(p Vec) Vec {
+	return p.Normalized().Mul(-SunMu / p.Len2())
+}
+
+func Log(x ...interface{}) {
+	fmt.Fprintln(os.Stderr, x...)
 }
 
 //type Rocket struct {
