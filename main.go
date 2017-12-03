@@ -23,9 +23,9 @@ func main() {
 	dth := *flagDTh
 	every := *flagEvery
 
-	p := Vec{Earth.R + MoonSMA, 0, 0}
+	p := Vec{Earth.R + MoonSMA, 0}
 	MoonV := 2 * math.Pi * MoonSMA / MoonP
-	v := Vec{0, Earth.V() + MoonV, 0}
+	v := Vec{0, Earth.V() + MoonV}
 
 	i := every
 	n := 0
