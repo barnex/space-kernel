@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -53,4 +54,12 @@ func (v Vec) Len2() float64 {
 func (v Vec) Normalized() Vec {
 	l := 1 / math.Sqrt(v[X]*v[X]+v[Y]*v[Y])
 	return Vec{v[X] * l, v[Y] * l}
+}
+
+func (v Vec) IsNaN() bool {
+	return math.IsNaN(v[X]) || math.IsNaN(v[Y])
+}
+
+func (v Vec) String() string {
+	return fmt.Sprint(v[X], v[Y])
 }

@@ -1,6 +1,10 @@
 package main
 
-import "math"
+import (
+	"fmt"
+	"log"
+	"math"
+)
 
 func NewIntegrator(a AccelFunc, dtheta float64) *Integrator {
 	return &Integrator{
@@ -14,6 +18,8 @@ type Integrator struct {
 	T    float64
 	P, V Vec
 
+	OutputEvery int
+
 	acc    AccelFunc
 	dtheta float64
 	dt     float64
@@ -26,6 +32,8 @@ func (s *Integrator) Advance(duration float64) {
 	t := s.T
 	tmax := t + duration
 
+	out := s.OutputEvery
+
 	a1 := s.acc(p, t)
 	var dt2 float64
 	for t+dt < tmax {
@@ -33,28 +41,43 @@ func (s *Integrator) Advance(duration float64) {
 		dt_2 := dt / 2
 		dt2_2 := dt * dt_2
 
+		p0, v0 := p, v
+
 		p[X] += dt*v[X] + dt2_2*a1[X]
 		p[Y] += dt*v[Y] + dt2_2*a1[Y]
 
-		a2 := s.acc(p, t)
+		a2 := s.acc(p, t+dt)
 		v[X] += dt_2 * (a1[X] + a2[X])
 		v[Y] += dt_2 * (a1[Y] + a2[Y])
 
 		// do a second step
 		p[X] += dt*v[X] + dt2_2*a2[X]
 		p[Y] += dt*v[Y] + dt2_2*a2[Y]
-		a1 = s.acc(p, t+dt)
+		a1 = s.acc(p, t+2*dt)
 		v[X] += dt_2 * (a1[X] + a2[X])
 		v[Y] += dt_2 * (a1[Y] + a2[Y])
 
 		//da := math.Sqrt(a1.Sub(a2).Len2() / (0.25 * a1.Add(a2).Len2()))
 		da := math.Sqrt((sqr(a1[X]-a2[X]) + sqr(a1[Y]-a2[Y])) / (0.25 * (sqr(a1[X]+a2[X]) + sqr(a1[Y]+a2[Y]))))
-		fac := clamp(dth / da)
-		dt2 = dt * fac
+		fac := dth / da
+		dt2 = dt * clamp(fac)
 
-		//a1 = a2 // FSAL
-		t += dt * 2
-		dt = dt2
+		if fac < 0.5 {
+			// undo bad stp
+			p = p0
+			v = v0
+			a1 = s.acc(p, t)
+		} else {
+			t += dt * 2
+			dt = dt2
+
+			out--
+			if out == 0 {
+				fmt.Println(t, p, v, dt)
+				out = s.OutputEvery
+			}
+		}
+
 	}
 	s.dt = dt2
 
@@ -67,7 +90,15 @@ func (s *Integrator) Advance(duration float64) {
 	s.P = p
 	s.V = v
 	s.T = t
+	s.check()
 }
+
+func (s *Integrator) check() {
+	if s.P.IsNaN() || s.V.IsNaN() || math.IsNaN(s.T) {
+		panic("NaN detected")
+	}
+}
+
 func sqr(x float64) float64 { return x * x }
 
 // Integrate advances position and velocity given an acceleration function,
@@ -140,6 +171,7 @@ func SymEuler(p, v Vec, acc AccelFunc, t, dt, _ float64) (Vec, Vec, float64) {
 
 func clamp(x float64) float64 {
 	if x < 0.5 {
+		log.Println("WARNING: clamping by", x)
 		return 0.5
 	}
 	if x > 2 {

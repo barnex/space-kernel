@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"math"
 	"os"
 )
@@ -10,107 +11,46 @@ import (
 var (
 	flagR     = flag.Float64("r", 1, "starting distance from center")
 	flagV     = flag.Float64("v", 1, "starting velocity")
-	flagT     = flag.Float64("t", Earth.P, "total time")
+	flagT     = flag.Float64("t", 356*Day, "total time")
 	flagDTh   = flag.Float64("d", 1e-3, "angular resolution")
 	flagEvery = flag.Float64("e", 1, "output every `N` steps")
 )
 
 func main() {
 	flag.Parse()
+	log.SetPrefix("#")
 
-	max := *flagT
-	h := 1.0
-	dth := *flagDTh
-	every := *flagEvery
+	Mtotal := 100.0
+	MFuel := 90.0
+	Ve := 3000.0           // m/s
+	Exhaust := 1.0         // kg/s
+	Thrust := Ve * Exhaust // kgm/s2 == N
 
-	p := Vec{Earth.R + MoonSMA, 0}
-	MoonV := 2 * math.Pi * MoonSMA / MoonP
-	v := Vec{0, Earth.V() + MoonV}
-
-	i := every
-	n := 0
-	for t := 0.0; t < max; {
-		p, v, h = AVerlet(p, v, AccSolar, t, h, dth)
-		t += h
-		if i == every {
-			e := Earth.Pos(t)
-			m := MoonPos(t)
-			fmt.Println(t, p[X], p[Y], m[X], m[Y], e[X], e[Y], h)
-			i = 0
+	accel := func(_ Vec, t float64) Vec {
+		Mex := Exhaust * t
+		if Mex > MFuel {
+			return Vec{}
 		}
-		i++
-		n++
+		M := Mtotal - Mex
+		return Vec{0, Thrust / M}
 	}
 
-	Log(n, "steps")
-	Log("dt", h, "s")
-}
+	s := NewIntegrator(accel, 1e-4)
+	s.OutputEvery = 1
+	s.Advance(100)
 
-type Planet struct {
-	Mu float64 // M*G in m3/s2
-	R  float64 // Semi-major axis in m
-	P  float64 // Orbital period in s
-}
-
-var (
-	Earth = Planet{
-		Mu: EarthMu,
-		R:  EarthSMA,
-		P:  EarthP,
-	}
-)
-
-func (b *Planet) V() float64 {
-	return 2 * math.Pi * b.R / b.P
-}
-
-func (p *Planet) Pos(t float64) Vec {
-	return Vec{
-		X: p.R * math.Cos(2*math.Pi*t/p.P),
-		Y: p.R * math.Sin(2*math.Pi*t/p.P),
-	}
-}
-
-func MoonPos(t float64) Vec {
-	m := Vec{
-		X: MoonSMA * math.Cos(2*math.Pi*t/MoonP),
-		Y: MoonSMA * math.Sin(2*math.Pi*t/MoonP),
-	}
-	return Earth.Pos(t).Add(m)
-}
-
-func (p *Planet) Acc(r Vec, t float64) Vec {
-	l := r.Sub(p.Pos(t))
-	return l.Normalized().Mul(-p.Mu / l.Len2())
-}
-
-func GravityAcc(mu float64) AccelFunc {
-	return func(p Vec, t float64) Vec {
-		x, y := p[X], p[Y]
-		len2 := x*x + y*y
-		len3 := len2 * math.Sqrt(len2)
-		f := -mu / len3
-		return Vec{f * x, f * y}
-	}
-}
-
-func AccSolar(p Vec, t float64) Vec {
-	return AccSun(p).Add(Earth.Acc(p, t))
-}
-
-func AccSun(p Vec) Vec {
-	return p.Normalized().Mul(-SunMu / p.Len2())
+	Mfinal := Mtotal - MFuel
+	want := Ve * math.Log(Mtotal/Mfinal)
+	log.Println(want)
 }
 
 func Log(x ...interface{}) {
 	fmt.Fprintln(os.Stderr, x...)
 }
 
-//type Rocket struct {
-//	Pos     Vec     // position in m
-//	V       Vec     // velocity in m/s
-//	Heading Vec     // nose direction (unit vector)
-//	M       float64 // mass in kg
-//	Thrust  float64 // Thrust in N
-//	Vsp     float64 // specific velocity (specific impulse*g)
-//
+func min(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
+}

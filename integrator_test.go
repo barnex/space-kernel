@@ -23,7 +23,7 @@ func TestIntegrator(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		s := NewIntegrator(GravityAcc(1), c.dtheta)
+		s := NewIntegrator(Gravity(1), c.dtheta)
 		s.P = c.p0
 		s.V = c.v0
 		s.Advance(c.duration)
@@ -38,7 +38,7 @@ func TestIntegrator(t *testing.T) {
 
 func BenchmarkIntegrator(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s := NewIntegrator(GravityAcc(1), 1e-3)
+		s := NewIntegrator(Gravity(1), 1e-3)
 		s.P = Vec{1, 0}
 		s.V = Vec{0, 1}
 		s.Advance(2 * math.Pi)
@@ -47,7 +47,7 @@ func BenchmarkIntegrator(b *testing.B) {
 
 func BenchmarkIntegrate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		Integrate(AVerlet, Vec{1, 0}, Vec{0, 1}, GravityAcc(1), 0, 2*math.Pi, 1e-5, 1e-3)
+		Integrate(AVerlet, Vec{1, 0}, Vec{0, 1}, Gravity(1), 0, 2*math.Pi, 1e-5, 1e-3)
 	}
 }
 
@@ -71,7 +71,7 @@ func TestAVerlet1(t *testing.T) {
 	stepper := AVerlet
 
 	for i, c := range cases {
-		p, _, _ := Integrate(stepper, c.p0, c.v0, GravityAcc(1), 0, c.duration, 1e-6, c.dtheta)
+		p, _, _ := Integrate(stepper, c.p0, c.v0, Gravity(1), 0, c.duration, 1e-6, c.dtheta)
 		if err := p.Sub(c.pWant).Len(); err > c.tol || math.IsNaN(err) {
 			t.Errorf("case %v: have %v, want %v +/- %v, err=%v", i, p, c.pWant, c.tol, err)
 		}
@@ -98,7 +98,7 @@ func TestVerlet1(t *testing.T) {
 	stepper := Verlet
 
 	for i, c := range cases {
-		p, _, _ := Integrate(stepper, c.p0, c.v0, GravityAcc(1), 0, c.duration, c.dt, 0)
+		p, _, _ := Integrate(stepper, c.p0, c.v0, Gravity(1), 0, c.duration, c.dt, 0)
 		if err := p.Sub(c.pWant).Len(); err > c.tol {
 			t.Errorf("case %v: have %v, want %v +/- %v, err=%v", i, p, c.pWant, c.tol, err)
 		}
@@ -125,7 +125,7 @@ func TestSymEuler1(t *testing.T) {
 	stepper := SymEuler
 
 	for i, c := range cases {
-		p, _, _ := Integrate(stepper, c.p0, c.v0, GravityAcc(1), 0, c.duration, c.dt, 0)
+		p, _, _ := Integrate(stepper, c.p0, c.v0, Gravity(1), 0, c.duration, c.dt, 0)
 		if err := p.Sub(c.pWant).Len(); err > c.tol || math.IsNaN(err) {
 			t.Errorf("case %v: have %v, want %v +/- %v, err=%v", i, p, c.pWant, c.tol, err)
 		}
